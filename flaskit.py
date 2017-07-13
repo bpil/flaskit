@@ -2,7 +2,6 @@
 
 import os,sys,string,time,json,urllib2
 from glob import glob
-from pymongo import MongoClient
 
 from jinja2 import Environment, FileSystemLoader
 from jinja2schema import infer, to_json_schema
