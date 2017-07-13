@@ -4,22 +4,22 @@ REST jinja API
 
 ## Installation 
 
-###Requirements :
+### Requirements :
 * jinja2 - pip install jinja2
 * flask - pip install flask
 
-###Install steps
+### Install steps
 Clone repository
 Put templates in /templates directory with .j2 extension
 
-##Utilisation :
+## Utilisation :
 
-###Server
+### Server
 Launch the Flask server :
 export FLASK_APP=flaskit.py
 flask run -p <port_number>
 
-###Client
+### Client
 GET /templatize
 will return the list of available templates in /templates directory, in json
 
