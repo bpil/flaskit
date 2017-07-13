@@ -10,6 +10,7 @@ from jinja2schema import infer, to_json_schema
 from flask import Flask, request, make_response, jsonify
 
 app = Flask(__name__)
+homedir = '/home/virl/bpi/dev'
 
 @app.route('/')
 def root():
@@ -31,7 +32,7 @@ def template_root():
 	
 @app.route('/templatize/<template_type>', methods=['GET', 'POST'])
 def templatize(template_type):
-	jinjaEnv = Environment(loader=FileSystemLoader('/home/bpilat/dev/flaskit/templates/'))
+	jinjaEnv = Environment(loader=FileSystemLoader( homedir + '/templates/'))
 	if request.method == 'GET':
 		fileList=glob("templates/*.j2")
 		code = 'NOK'
@@ -42,8 +43,8 @@ def templatize(template_type):
 			if template_type == templateName:
 				code = 'OK'
 				reason = 'OK'
-				template = jinjaEnv.loader.get_source(jinjaEnv, template_type + '.j2')[0]
-				s = infer(template)
+				source = jinjaEnv.loader.get_source(jinjaEnv, template_type + '.j2')[0]
+				s = infer(source)
 				jsonSchema = to_json_schema(s)
 		response = make_response(jsonify(code=code, reason=reason, params=jsonSchema), 200)
 		response.headers['Content-Type'] = 'application/json'
@@ -54,4 +55,6 @@ def templatize(template_type):
 			response.headers['Content-Type'] = 'application/json'
 			return response
 		data = request.get_json()
-		return "OK"
+		template = jinjaEnv.get_template(template_type + '.j2')
+		response = template.render(data)
+		return response
