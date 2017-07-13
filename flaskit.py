@@ -10,7 +10,7 @@ from jinja2schema import infer, to_json_schema
 from flask import Flask, request, make_response, jsonify
 
 app = Flask(__name__)
-homedir = '/home/virl/bpi/dev'
+homedir = '/home/virl/bpi/dev/flaskit'
 
 @app.route('/')
 def root():
@@ -56,5 +56,6 @@ def templatize(template_type):
 			return response
 		data = request.get_json()
 		template = jinjaEnv.get_template(template_type + '.j2')
-		response = template.render(data)
+		config = template.render(data)
+		response = make_response(jsonify(code='OK', config=config), 200)
 		return response
