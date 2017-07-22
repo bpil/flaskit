@@ -4,12 +4,34 @@ import os,sys,string,time,json,urllib2
 from glob import glob
 
 from jinja2 import Environment, FileSystemLoader
-from jinja2schema import infer, to_json_schema
+from jinja2schema import infer, to_json_schema, StringJSONSchemaDraft4Encoder
 
 from flask import Flask, request, make_response, jsonify
 
+def parseSchema(schema):
+#	print schema
+	response = {}
+	if 'properties' in schema.keys():
+		response =  parseSchema(schema['properties'])
+	else:
+		for k in schema.keys():
+			tmpList = schema[k]
+			if not type(schema[k]) == 'dict':
+				tmpList = [ schema[k]]
+			for elt in tmpList:
+				if 'properties' in elt.keys():
+					response[k] = parseSchema(elt['properties'])
+				#if 'title' in schema[k].keys():
+				else:
+					if 'items' in elt.keys():
+						response[k]=parseSchema(elt['items'])
+					else:
+						response[k] = elt['type']
+	return response
+
+
 app = Flask(__name__)
-homedir = '/home/virl/bpi/dev/flaskit'
+homedir = '/home/bpilat/dev/flaskit'
 
 @app.route('/')
 def root():
@@ -32,6 +54,8 @@ def template_root():
 @app.route('/templatize/<template_type>', methods=['GET', 'POST'])
 def templatize(template_type):
 	jinjaEnv = Environment(loader=FileSystemLoader( homedir + '/templates/'))
+	response = make_response(jsonify(code='NOK', reason='Unknown', comment='Unkown Error'), 500)
+	response.headers['Content-Type'] = "application/json"
 	if request.method == 'GET':
 		fileList=glob("templates/*.j2")
 		code = 'NOK'
@@ -44,7 +68,10 @@ def templatize(template_type):
 				reason = 'OK'
 				source = jinjaEnv.loader.get_source(jinjaEnv, template_type + '.j2')[0]
 				s = infer(source)
-				jsonSchema = to_json_schema(s)
+#				jsonSchema = s
+				print to_json_schema(s, jsonschema_encoder=StringJSONSchemaDraft4Encoder)
+				jsonSchema = parseSchema( to_json_schema(s, jsonschema_encoder=StringJSONSchemaDraft4Encoder) )
+				print jsonSchema
 		response = make_response(jsonify(code=code, reason=reason, params=jsonSchema), 200)
 		response.headers['Content-Type'] = 'application/json'
 		return response
