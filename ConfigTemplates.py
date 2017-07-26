@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os,sys,string,time,json,urllib2
+import os,sys,string,time,json,urllib2,yaml
 from glob import glob
 
 from jinja2 import Environment, FileSystemLoader
@@ -8,6 +8,25 @@ from jinja2schema import infer, to_json_schema, StringJSONSchemaDraft4Encoder
 
 from flask import request, make_response, jsonify
 
+ERROR_CODES = {
+	'Unknown': 'Uknown error',
+	'Invalid Template': '',
+	'Bad Encoding': 'Request must be application/json',
+	'No Action': 'Request has no Action parameter',
+	'No Params': 'Action request without params argument',
+	'Unknown Action': 'Type of Action is not implemented',
+	'Wrong Method': 'HTTP Method not implemented'
+}
+
+def errorCode(reason='Unknown'):
+	respReason = 'Unknown'
+	comment = ERROR_CODES[reason]
+	if reason in ERROR_CODES.keys():
+		respReason = reason
+		comment = ERROR_CODES[reason]
+	response = make_response(jsonify(code='NOK', reason=respReason, comment=comment), 400)
+	response.headers['Content-Type'] = "application/json"
+	return response
 
 
 class ConfigTemplate(object):
@@ -15,14 +34,6 @@ class ConfigTemplate(object):
 	def __init__(self, templateDir):
 		self.jinjaEnv = Environment(loader=FileSystemLoader( templateDir))
 		self.templateDir = templateDir
-		self.ERROR_CODES = {
-			'Unknown': 'Uknown error',
-			'Invalid Template': '',
-			'Bad Encoding': 'Request must be application/json',
-			'No Action': 'Request has no Action parameter',
-			'No Params': 'Action request without params argument',
-			'Unknown Action': 'Type of Action is not implemented'
-		}
 
 	def parseSchema(self, schema):
 		response = {}
@@ -41,7 +52,7 @@ class ConfigTemplate(object):
 						if 'items' in elt.keys():
 							response[k]=[ self.parseSchema(elt['items']) ]
 						else:
-							response[k] = elt['type']
+							response[k] = { 'source': 'input', 'type': elt['type'] }
 		return response
 
 	def listTemplates(self):
@@ -64,52 +75,50 @@ class ConfigTemplate(object):
 				response = True
 		return response
 
-	def errorCode(self, reason='Unknown'):
-		respReason = 'Unknown'
-		comment = self.ERROR_CODES[reason]
-		if reason in self.ERROR_CODES.keys():
-			respReason = reason
-			comment = self.ERROR_CODES[reason]
-		response = make_response(jsonify(code='NOK', reason=respReason, comment=comment), 400)
-		response.headers['Content-Type'] = "application/json"
-		return response
-
-
 	def responseTemplate(self, request, template_type):
-		response = make_response(jsonify(code='NOK', reason='Unknown', comment='Unkown Error'), 500)
-		response.headers['Content-Type'] = "application/json"
 		if request.method == 'GET':
 			fileList=glob(self.templateDir + "/*.j2")
+			metaList=glob(self.templateDir + ".*.yml")
 			jsonSchema = ""
 			for fileName in fileList:
 				templateName = fileName.split('/')[-1].rstrip('.j2')
 				if template_type == templateName:
 					code = 'OK'
-					reason = 'OK'
-					source = self.jinjaEnv.loader.get_source(self.jinjaEnv, template_type + '.j2')[0]
-					s = infer(source)
-	#				jsonSchema = s
-					jsonSchema = self.parseSchema( to_json_schema(s, jsonschema_encoder=StringJSONSchemaDraft4Encoder) )
-					response = make_response(jsonify(code=code, reason=reason, params=jsonSchema), 200)
+					data= {}
+					dataSource = ''
+					print self.templateDir + templateName + ".yml"
+					if os.path.isfile(self.templateDir + "/" + templateName + ".yml"):
+						f = open (self.templateDir + "/" + templateName + ".yml")
+						data = yaml.load(f)
+						f.close()
+						dataSource = 'meta'
+					else:
+						source = self.jinjaEnv.loader.get_source(self.jinjaEnv, template_type + '.j2')[0]
+						s = infer(source)
+						data = {'params': self.parseSchema( to_json_schema(s, jsonschema_encoder=StringJSONSchemaDraft4Encoder) ) }
+						dataSource = 'infer'
+					response = make_response(jsonify(code=code, dataSource=dataSource, data=data), 200)
 					response.headers['Content-Type'] = 'application/json'
 					return response
-			response = self.errorCode('Invalid Template')
+			response = errorCode('Invalid Template')
 			return response
 		if request.method == 'POST':
 			if not request.is_json:
-				response = self.errorCode('Bad Encoding')
+				response = errorCode('Bad Encoding')
 				return response
 			data = request.get_json()
 			if not 'action' in data.keys():
-				response = self.errorCode('No Action')
+				response = errorCode('No Action')
 				return response
 			if data['action'] == 'render':
 				if not 'params' in data.keys():
-					response = self.errorCode('No Params')
+					response = errorCode('No Params')
 					return response
 				template = self.jinjaEnv.get_template(template_type + '.j2')
 				config = template.render(data['params'])
 				response = make_response(jsonify(code='OK', config=config), 200)
 				return response
-			response = self.errorCode('Unknown Action')
+			response = errorCode('Unknown Action')
 			return response
+		response = errorCode('Wrong Method')
+		return response
