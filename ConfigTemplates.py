@@ -2,11 +2,18 @@
 
 import os,sys,string,time,json,urllib2,yaml
 from glob import glob
+from inspect import getmembers, isfunction
 
 from jinja2 import Environment, FileSystemLoader
-from jinja2schema import infer, to_json_schema, StringJSONSchemaDraft4Encoder
+from jinja2schema import infer, to_json_schema, StringJSONSchemaDraft4Encoder, infer_from_ast, parse, InvalidExpression
 
 from flask import request, make_response, jsonify
+
+import CustomFilters
+
+
+
+
 
 ERROR_CODES = {
 	'Unknown': 'Uknown error',
@@ -19,6 +26,8 @@ ERROR_CODES = {
 }
 
 def errorCode(reason='Unknown'):
+	''' Builds a json error response.
+	'''
 	respReason = 'Unknown'
 	comment = ERROR_CODES[reason]
 	if reason in ERROR_CODES.keys():
@@ -30,12 +39,28 @@ def errorCode(reason='Unknown'):
 
 
 class ConfigTemplate(object):
+	''' The class handling jinja configuration files and meta files.
+
+	Implements different json response to queries about jinja configuration files
+	and their corresponding meta files.
+	'''
 
 	def __init__(self, templateDir):
+		''' Simple class constructor.
+
+		templateDir : directory where .j2 jinja template and .yml meta files are placed.
+		'''
 		self.jinjaEnv = Environment(loader=FileSystemLoader( templateDir))
 		self.templateDir = templateDir
+		for m in getmembers(CustomFilters):
+			if isfunction(m[1]):
+				self.jinjaEnv.filters[m[0]] = m[1]
 
 	def parseSchema(self, schema):
+		''' Converts jinja2schema dict into a more readable form.
+
+		schema : result of jinja2schema infer operation on a jinja2 template.
+		'''
 		response = {}
 		if 'properties' in schema.keys():
 			response =  self.parseSchema(schema['properties'])
@@ -52,10 +77,19 @@ class ConfigTemplate(object):
 						if 'items' in elt.keys():
 							response[k]=[ self.parseSchema(elt['items']) ]
 						else:
-							response[k] = { 'source': 'input', 'type': elt['type'] }
+							response[k] = elt['type']
 		return response
 
+	def parseYaml(self, yamlData):
+		response = {}
+		if type(yamlData) == 'dict':
+			if 'source' in yamlData.keys():
+				return True # A FINIR!!!!!!
+
 	def listTemplates(self):
+		''' Lists files with .j2 extension in self.templateDir.
+		'''
+
 		fileList=glob(self.templateDir + "/*.j2")
 		tmpCode = 'OK'
 		templates = []
@@ -67,6 +101,8 @@ class ConfigTemplate(object):
 		return response
 
 	def checkTemplate(self, template_type):
+		''' Check if template_type has a corresponding .j2 file in self.templateDir
+		'''
 		fileList=glob(self.templateDir + "/*.j2")
 		response = False
 		for fileName in fileList:
@@ -76,6 +112,15 @@ class ConfigTemplate(object):
 		return response
 
 	def responseTemplate(self, request, template_type):
+		''' Builds a json response to a query of <template_type>
+
+		request : HTTP request. Valid requests are GET and POST
+		GET request : returns the content of the meta file corresponding to the template, or
+		the inferred parameters json (from jinja2schema) if no meta file exists
+		POST request : returns the rendered template file with the parameter given in POST data
+
+		template_type : the name of the template to infer or render
+		'''
 		if request.method == 'GET':
 			fileList=glob(self.templateDir + "/*.j2")
 			metaList=glob(self.templateDir + ".*.yml")
@@ -86,15 +131,21 @@ class ConfigTemplate(object):
 					code = 'OK'
 					data= {}
 					dataSource = ''
-					print self.templateDir + templateName + ".yml"
 					if os.path.isfile(self.templateDir + "/" + templateName + ".yml"):
 						f = open (self.templateDir + "/" + templateName + ".yml")
-						data = yaml.load(f)
+						yamlData = yaml.load(f)
 						f.close()
+						yamlParams = yamlData['params']
+						data = yamlParams
 						dataSource = 'meta'
 					else:
-						source = self.jinjaEnv.loader.get_source(self.jinjaEnv, template_type + '.j2')[0]
-						s = infer(source)
+						s = {}
+						source = parse(self.jinjaEnv.loader.get_source(self.jinjaEnv, template_type + '.j2')[0], self.jinjaEnv)
+#						source = parse(self.jinjaEnv.get_template(template_type + '.j2'), self.jinjaEnv)
+						try:
+							s = infer_from_ast(source)
+						except InvalidExpression:
+							pass
 						data = {'params': self.parseSchema( to_json_schema(s, jsonschema_encoder=StringJSONSchemaDraft4Encoder) ) }
 						dataSource = 'infer'
 					response = make_response(jsonify(code=code, dataSource=dataSource, data=data), 200)

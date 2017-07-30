@@ -1,1 +1,5 @@
 Ceci est un template de {{ configuration }}
+set interfaces {{ if_peer_phy }} unit 0 description "Peering {{ peer_name }}"
+set interfaces {{ if_peer_phy }} unit 0 family inet address {{ ip_local }}/31
+set protocols bgp group PEER_{{ peer_name }} peer-as {{ peer_as }}
+set protocols bgp group PEER_{{ peer_name }} neighbor {{ ip_local|ip_plus_one() }}
