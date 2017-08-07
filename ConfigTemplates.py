@@ -56,12 +56,15 @@ class ConfigTemplate(object):
 			if isfunction(m[1]):
 				self.jinjaEnv.filters[m[0]] = m[1]
 
+	def errorCode(reason='Unknown'):
+		return errorCode(reason)
+
 	def parseSchema(self, schema):
 		''' Converts jinja2schema dict into a more readable form.
 
 		schema : result of jinja2schema infer operation on a jinja2 template.
 		'''
-		response = {}
+		response = []
 		if 'properties' in schema.keys():
 			response =  self.parseSchema(schema['properties'])
 		else:
@@ -77,7 +80,8 @@ class ConfigTemplate(object):
 						if 'items' in elt.keys():
 							response[k]=[ self.parseSchema(elt['items']) ]
 						else:
-							response[k] = elt['type']
+#							response[k] = { 'type': elt['type'], 'source': 'input' }
+							response = response + [ { 'type': elt['type'], 'label': k, 'name': k } ]
 		return response
 
 	def parseYaml(self, yamlData):
@@ -172,4 +176,56 @@ class ConfigTemplate(object):
 			response = errorCode('Unknown Action')
 			return response
 		response = errorCode('Wrong Method')
+		return response
+
+	def getTemplate(self, template_type):
+		fileList=glob(self.templateDir + "/*.j2")
+		metaList=glob(self.templateDir + ".*.yml")
+		jsonSchema = ""
+		for fileName in fileList:
+			templateName = fileName.split('/')[-1].rstrip('.j2')
+			if template_type == templateName:
+				code = 'OK'
+				data= {}
+				dataSource = ''
+				if os.path.isfile(self.templateDir + "/" + templateName + ".yml"):
+					f = open (self.templateDir + "/" + templateName + ".yml")
+					yamlData = yaml.load(f)
+					f.close()
+					yamlParams = yamlData['params']
+					data = yamlParams
+					dataSource = 'meta'
+				else:
+					s = {}
+					source = parse(self.jinjaEnv.loader.get_source(self.jinjaEnv, template_type + '.j2')[0], self.jinjaEnv)
+#						source = parse(self.jinjaEnv.get_template(template_type + '.j2'), self.jinjaEnv)
+					try:
+						s = infer_from_ast(source)
+					except InvalidExpression:
+						pass
+					data = {'params': self.parseSchema( to_json_schema(s, jsonschema_encoder=StringJSONSchemaDraft4Encoder) ) }
+					dataSource = 'infer'
+				response = make_response(jsonify(code=code, dataSource=dataSource, data=data), 200)
+				response.headers['Content-Type'] = 'application/json'
+				return response
+		response = errorCode('Invalid Template')
+		return response
+
+	def postTemplate(self, request, template_type):
+		if not request.is_json:
+			response = errorCode('Bad Encoding')
+			return response
+		data = request.get_json()
+		if not 'action' in data.keys():
+			response = errorCode('No Action')
+			return response
+		if data['action'] == 'render':
+			if not 'params' in data.keys():
+				response = errorCode('No Params')
+				return response
+			template = self.jinjaEnv.get_template(template_type + '.j2')
+			config = template.render(data['params'])
+			response = make_response(jsonify(code='OK', config=config), 200)
+			return response
+		response = errorCode('Unknown Action')
 		return response

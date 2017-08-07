@@ -8,6 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 from jinja2schema import infer, to_json_schema, StringJSONSchemaDraft4Encoder
 
 from flask import Flask, request, make_response, jsonify
+from flask.views import MethodView
 
 
 app = Flask(__name__)
@@ -27,5 +28,34 @@ def template_root():
 	
 @app.route('/templatize/<template_type>', methods=['GET', 'POST'])
 def templatize(template_type):
-	response = mainTemplate.responseTemplate(request, template_type)
-	return response
+	if request.method == 'GET':
+		return mainTemplate.getTemplate(template_type)
+	if request.method == 'POST':
+		return mainTemplate.postTemplate(request, template_type)
+	return mainTemplate.errorCode('Wrong Method')
+#	response = mainTemplate.responseTemplate(request, template_type)
+#	return response
+
+
+
+
+"""
+class configAPI(MethodView):
+
+	def __init__(self, templateDir):
+		self.mainTemplate = ConfigTemplate(templateDir)
+
+	def get(self, template_type):
+		if template_type is None:
+			return self.mainTemplate.listTemplates()
+		else:
+			return self.mainTemplate.getTemplate(template_type)
+
+	def post(self, template_type):
+		return self.mainTemplate.postTemplate(request, template_type)
+
+obj_API = configAPI(homedir + '/templates')
+config_view = obj_API.as_view('config_view')
+app.add_url_rule('/templatize/', defaults={'template_type': None}, view_func=config_view, methods=['GET', ])
+app.add_url_rule('/templatize/<template_type>', view_func=config_view, methods=['GET', 'POST',])
+"""
