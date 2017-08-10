@@ -24,14 +24,23 @@ def root():
 
 @app.route('/templatize')
 def template_root():
-	return mainTemplate.listTemplates()
+	r = mainTemplate.listTemplates()
+	response = make_response(jsonify(r['data']), r['code'])
+	response.headers['Content-Type'] = 'application/json'
+	return response
 	
 @app.route('/templatize/<template_type>', methods=['GET', 'POST'])
 def templatize(template_type):
 	if request.method == 'GET':
-		return mainTemplate.getTemplate(template_type)
+		r = mainTemplate.getTemplate(template_type)
+		response = make_response(jsonify(r['data']), r['code'])
+		response.headers['Content-Type'] = 'application/json'
+		return response
 	if request.method == 'POST':
-		return mainTemplate.postTemplate(request, template_type)
+		r = mainTemplate.postTemplate(request, template_type)
+		response = make_response(jsonify(r['data']['config']), r['code'])
+		response.headers['Content-Type'] = 'application/json'
+		return response
 	return mainTemplate.errorCode('Wrong Method')
 #	response = mainTemplate.responseTemplate(request, template_type)
 #	return response
