@@ -1,0 +1,20 @@
+inputs:
+  properties:
+    if_peer_phy: {title: if_peer_phy, type: string}
+    interfaces:
+      items:
+        properties:
+          elt_1: {title: "Interface name'", type: string}
+          elt_5: {title: "RSVP color", type: string}
+        required: [elt_5, elt_1]
+        title: interface
+        type: object
+      title: interfaces
+      type: array
+    ip_local: {title: ip_local, type: string}
+    peer_as: {title: peer_as, type: string}
+    peer_name: {title: peer_name, type: string}
+    l2l_if: {title: "interface Lan2Lan", type: string}
+    l2l_encap: {title: "Lan2lan encapsulation type", type: string, enum: ["ethernet-ccc", "vlan-ccc"]}
+  required: [interfaces, ip_local, peer_as, if_peer_phy, peer_name]
+  type: object
