@@ -29,3 +29,16 @@ def lookup_dict( value, table_name ):
 		if value in lookup_table.keys():
 			return lookup_table[value]
 	return "None"
+
+def isis_id( ip ):
+	try:
+		ipCheck = ipaddress.ip_address(ip)
+	except:
+		return "6666.6666.6666"
+	octets = ip.split(".")
+	alloctets = ""
+	for o in octets:
+		alloctets += "%03d" % (int(o),)
+	print type(alloctets)
+	print alloctets
+	return alloctets[0:4] + "." + alloctets[4:8] + "." + alloctets[8:12]

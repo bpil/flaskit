@@ -24,6 +24,7 @@ def root():
 
 @app.route('/templatize')
 def template_root():
+	mainTemplate.refresh()
 	r = mainTemplate.listTemplates()
 	response = make_response(jsonify(r['data']), r['code'])
 	response.headers['Content-Type'] = 'application/json'

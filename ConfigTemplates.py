@@ -72,6 +72,10 @@ class ConfigTemplate(object):
 			if isfunction(m[1]):
 				self.jinjaEnv.filters[m[0]] = m[1]
 		self.templateList = {}
+		self.refresh()
+
+
+	def refresh(self):
 		for templateFile in glob(self.templateDir + "/*.j2"):
 			templateName = templateFile.split('/')[-1].rstrip('.j2')
 			data = {}
@@ -90,8 +94,7 @@ class ConfigTemplate(object):
 			self.templateList[templateName] = data
 
 
-
-	def errorCode(reason='Unknown'):
+	def errorCode(self, reason='Unknown'):
 		return errorCode(reason)
 
 
