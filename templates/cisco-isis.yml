@@ -1,0 +1,5 @@
+inputs:
+  properties:
+    ip_lo0: {title: ip_lo0, type: string}
+  required: [ip_lo0]
+  type: object

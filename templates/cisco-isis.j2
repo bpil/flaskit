@@ -1,0 +1,9 @@
+interface Loopback0
+ description {{ ip_lo0 }}
+ ip address {{ ip_lo0 }} 255.255.255.255
+!
+router isis CORE
+ net 49.0001.{{ ip_lo0 |isis_id() }}.00
+ is-type level-1
+router bgp 1
+ bgp router-id {{ ip_lo0 }}
