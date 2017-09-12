@@ -12,7 +12,7 @@ from flask.views import MethodView
 
 
 app = Flask(__name__)
-homedir = '/home/bpilat/dev/flaskit'
+homedir = '/app'
 
 mainTemplate = ConfigTemplate(homedir + '/templates')
 
@@ -69,3 +69,7 @@ config_view = obj_API.as_view('config_view')
 app.add_url_rule('/templatize/', defaults={'template_type': None}, view_func=config_view, methods=['GET', ])
 app.add_url_rule('/templatize/<template_type>', view_func=config_view, methods=['GET', 'POST',])
 """
+
+if __name__ == "__main__":
+# Only for debugging while developing
+	app.run(host='0.0.0.0', debug=True, port=6678)
